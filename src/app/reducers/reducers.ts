@@ -10,10 +10,10 @@ import {
 import { RouterStateUrl } from '../shared/utils'
 import *  as fromRouter from '@ngrx/router-store'
 import { storeFreeze } from 'ngrx-store-freeze'
-import * as fromAuth from '../auth/reducers/auth.reducer';
+import * as fromAuth from '../auth/Reducers/auth.reducer';
 
 export interface State {
-    auth: fromAuth.state,
+    auth: fromAuth.State,
     router: fromRouter.RouterReducerState<RouterStateUrl>
 }
 
@@ -32,6 +32,7 @@ export function logger(reducer: ActionReducer<State>): ActionReducer<State>{
 
 export const metaReducers: MetaReducer<State>[] = !environment.production ? [logger, storeFreeze] : [];
 
-export const getAuthState = createFeatureSelector<fromAuth.State>('auth'):
-
-export const getAuth = createSelector(getAuthState, fromAuth.getAuthState)
+export const getAuthState = createFeatureSelector<fromAuth.State>('auth')
+export const getAuth = createSelector(getAuthState, fromAuth.getAuthSate)
+export const getAuthLoding = createSelector(getAuthState, fromAuth.getAuthLoading)
+export const getAuthError = createSelector(getAuthState, fromAuth.getAuthError)

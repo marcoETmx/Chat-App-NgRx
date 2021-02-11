@@ -1,58 +1,74 @@
 import { Injectable } from '@angular/core';
-import { ofType, Effect, Actions } from '@ngrx/effects';
-import { Action } from '@ngrx/store';
-import { Observable, of } from 'rxjs';
-import { tap, map, mergeMap, exhaustMap, catchError } from 'rxjs/operators';
-import {
-  AuthActionTypes,
-  LoggedIn,
-  LoggedUser,
-  LogginUser,
-  LogginUserError,
-} from '../Actions/auth.actions';
-import { HttpClient } from '@angular/common/http';
-import { AuthService } from '../services/auth.service';
+import { Effect, Actions } from '@ngrx/effects';
+import { User } from '../Models/user';
+
+import { AngularFireAuth } from '@angular/fire/auth';
+import * as firebase from 'firebase';
+
+import { Observable, of, from } from 'rxjs';
+import { map, switchMap, catchError } from 'rxjs/operators';
+
+import * as userActions from '../Actions/auth.actions';
+
+export type Action = userActions.All;
 
 @Injectable({
-  providedIn: 'root',
+  providedIn: 'root'
 })
-export class AuthEffects {
-  constructor(
-    private http: HttpClient,
-    private actions$: Actions,
-    private authService: AuthService,
-    private router: Router
-  ) {}
+export class UserEffects {
 
-  @Effect()
-  LoginUserError$: Observable<Action> = this.actions$.pipe(
-    ofType<LogginUserError>(AuthActionTypes.LogginUserError),
-    tap((v) => console.log('LoggedAPI error', v.payload)),
-    map((data) => {
-      return {
-        type: 'LOGIN_API_ERROR',
-        payload: 'Email or password incorrect',
-      };
-    })
-  );
+    constructor(private actions: Actions, private afAuth: AngularFireAuth) {}
 
-  @Effect()
-  LoginUser$: Observable<Action> = this.actions$.pipe(
-    ofType<LogginUser>(AuthActionTypes.LogginUser),
-    tap((v) => console.log('LoginUser effect', v.payload)),
-    map(action => action.payload),
-    exhaustMap(auth => {
-      return this.authService.login(auth.user)
+    @Effect()
+    getUser: Observable<Action> = this.actions.ofType(userActions.AuthActionTypes.GET_USER)
+    .pipe(
+      map((action: userActions.GetUser) => action.payload),
+      switchMap(payload => this.afAuth.authState),
+      map( authData => {
+        if (authData) {
+          const user = new User(authData.uid, authData.displayName);
+          return new userActions.Authenticated(user);
+        } else {
+          return new userActions.NotAuthenticated();
+        }
+      }),
+      catchError (err => of(new userActions.AuthError()))
+      );
+
+      @Effect()
+      login: Observable<Action> = this.actions.ofType(userActions.AuthActionTypes.GOOGLE_LOGIN)
         .pipe(
-          map(response => new LoggedUser(response)),
-          catchError(error => of(new LogginUserError(error)))
-        )
-    })
-  );
+          map((action: userActions.GoogleLogin) => action.payload),
+          switchMap(payload => {
+            return from (this.googleLogin());
+          }),
+          map(credential => {
+            return new userActions.GetUser();
+          }),
+          catchError(err => {
+            return of(new userActions.AuthError({error: err.message}));
+          })
+        );
 
-  @Effect({dispatch: false})
-  LoggedUser$: Observable<Action> = this.actions$.pipe(
-    ofType<LoggedUser>(AuthActionTypes.LoggedUser),
-    tap((v) => this.route.navigate(['/chats']))
-  );
+      private googleLogin(): Promise<firebase.auth.UserCredential> {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        return this.afAuth.auth.signInWithPopup(provider);
+      }
+
+     @Effect()
+      Logout: Observable<Action> = this.actions.ofType(userActions.AuthActionTypes.LOGOUT)
+        .pipe(
+          map((action: userActions.Logout) => action.payload),
+          switchMap(payload => {
+            return of(this.afAuth.auth.signOut());
+          }),
+          map( authData => {
+            return new userActions.NotAuthenticated();
+          }),
+          catchError(err => {
+            console.log('logout', err);
+            return of(new userActions.AuthError({err: err.message}));
+          })
+        )
+      ;
 }

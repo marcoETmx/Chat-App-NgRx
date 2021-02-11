@@ -1,35 +1,32 @@
-import * as AuthActions from '../Actions/auth.actions'
-import { actions, AuthActionTypes } from '../Actions/auth.actions'
+
+import * as userActions from '../Actions/auth.actions';
+
+export type Action = userActions.All;
 
 export interface State {
-    user: Array<any>;
-    tokens: Array<any>;
-    error: string;
-    isLoading: boolean;
+  uid: string;
+  displayName: string;
+  loading?: boolean;
+  error?: string;
 }
 
-const initialState: State = {
-    user: [],
-    tokens: [],
-    error: '',
-    isLoading: false
+const defaultUser: State = { uid: null, displayName: 'GUEST', loading: false};
+
+export function userReducer (state: State = defaultUser, action: Action) {
+  switch (action.type) {
+    case userActions.AuthActionTypes.GET_USER :
+      return { ...state, loading: true};
+    case userActions.AuthActionTypes.AUTHENTICATED:
+      return { ...state, ...action.payload, loading: false };
+    case userActions.AuthActionTypes.NOT_AUTHENTICATED:
+        return { ...state, ...defaultUser, loading: false };
+    case userActions.AuthActionTypes.GOOGLE_LOGIN:
+      return { ...state, loading: true };
+    case userActions.AuthActionTypes.AUTH_ERROR:
+      return { ...state, ...action.payload, loading: false };
+    case userActions.AuthActionTypes.LOGOUT:
+      return { ...state, loading: true };
+  }
 }
 
-export function AuthReducer(state= [], action: actions){
-    switch(action.type){
-        case AuthActionTypes.LogginUser:
-            return action;
-        case AuthActionTypes.LoggedUser:
-            return {
-                ...state,
-                isLoading: false,
-                token: action.payload
-            }
-        default:
-            return state
-        }
-}
-
-export const getAuthSate = (state: State) => state.user;
-export const getAuthAction = (action: any) => action.payload;
-export const getAuthError = (state: State) => state.error;
+export const getAuthState = (state: State) => state;
